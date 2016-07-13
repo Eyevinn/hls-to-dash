@@ -168,8 +168,9 @@ class MPD:
 
     def asXML(self):
         xml = '<?xml version="1.0"?>';
-        xml += '<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="dynamic" minimumUpdatePeriod="PT20S" minBufferTime="PT1.500S" maxSegmentDuration="%s">\n' % (PT(self.maxSegmentDuration))
+        xml += '<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="dynamic" minimumUpdatePeriod="PT10S" minBufferTime="PT1.500S" maxSegmentDuration="%s">\n' % (PT(self.maxSegmentDuration))
         xml += '  <Period id="1" start="PT0S" duration="%s">\n' % PT(self.periodDuration)
+        #xml += '  <Period id="1" start="PT0S">\n' % PT(self.periodDuration)
         xml += self.as_video.asXML()
         xml += self.as_audio.asXML()
         xml += '  </Period>\n'
