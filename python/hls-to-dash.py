@@ -43,7 +43,7 @@ class MPD_Representation:
     def getBandwidth(self):
         return self.bandwidth
     def asXML(self):
-        xml = '      <Representation id="%s" />\n' % (self.id)
+        xml = '      <Representation id="%s" bandwidth="%s" />\n' % (self.id, self.bandwidth)
         return xml
     def __str__(self):
         return "(id=%s, bandwidth=%s)" % (self.id, self.bandwidth)
@@ -58,7 +58,7 @@ class MPD_RepresentationVideo(MPD_Representation):
     def getWidth(self):
         return self.width
     def asXML(self):
-        xml = '      <Representation id="%s" width="%s" height="%s" scanType="progressive" />\n' % (self.id, self.width, self.height)
+        xml = '      <Representation id="%s" width="%s" height="%s" bandwidth="%s" scanType="progressive" />\n' % (self.id, self.width, self.height, self.bandwidth)
         return xml
     def __str__(self):
         return "(id=%s, bandwidth=%s, width=%s, height=%s)" % (self.id, self.bandwidth, self.width, self.height)
@@ -71,7 +71,7 @@ class MPD_AdaptationSet:
         self.mimeType = mimeType
         self.codec = codec
         self.timescale = timescale
-        self.startNumber = 0
+        self.startNumber = '0'
         self.presentationTimeOffset = 0
     def addRepresentation(self, representation):
         self.representations.append(representation)
@@ -79,7 +79,7 @@ class MPD_AdaptationSet:
         segment.setTimescale(self.timescale)
         self.segments.append(segment)
     def setStartNumber(self, startNumber):
-        self.startNumber = startNumber
+        self.startNumber = startNumber.lstrip('0')
     def setStartTime(self, startTime):
         self.presentationTimeOffset = startTime * self.timescale
     def __str__(self):
@@ -101,9 +101,11 @@ class MPD_AdaptationSetVideo(MPD_AdaptationSet):
         minBandwidth = self.representations[min(idxlist, key = lambda x: self.representations[x].getBandwidth())].getBandwidth()
         xml = ''
         xml += '    <AdaptationSet mimeType="%s" codecs="%s" segmentAlignment="true" minWidth="%d" maxWidth="%d" minHeight="%d" maxHeight="%d" startWithSAP="1" minBandwidth="%d" maxBandwidth="%d">\n' % (self.mimeType, self.codec, minWidth, minHeight, maxWidth, maxHeight, minBandwidth, maxBandwidth)
-        xml += '      <SegmentTemplate timescale="%d" media="$RepresentationID$_$Number$.dash" startNumber="%d" presentationTimeOffset="%d">\n' % (self.timescale, self.startNumber, self.presentationTimeOffset)
+        xml += '      <SegmentTemplate timescale="%d" media="$RepresentationID$_$Number$.dash" startNumber="%s" presentationTimeOffset="%d">\n' % (self.timescale, self.startNumber, self.presentationTimeOffset)
+        xml += '        <SegmentTimeline>\n';
         for s in self.segments:
             xml += s.asXML()
+        xml += '        </SegmentTimeline>\n';
         xml += '      </SegmentTemplate>\n'
         for r in self.representations:
             xml += r.asXML()
@@ -116,9 +118,11 @@ class MPD_AdaptationSetAudio(MPD_AdaptationSet):
     def asXML(self):
         xml = ''
         xml += '    <AdaptationSet mimeType="%s" codecs="%s">\n' % (self.mimeType, self.codec)
-        xml += '      <SegmentTemplate timescale="%d" media="$RepresentationID$_$Number$.dash" startNumber="%d" presentationTimeOffset="%d">\n' % (self.timescale, self.startNumber, self.presentationTimeOffset)
+        xml += '      <SegmentTemplate timescale="%d" media="$RepresentationID$_$Number$.dash" startNumber="%s" presentationTimeOffset="%d">\n' % (self.timescale, self.startNumber, self.presentationTimeOffset)
+        xml += '        <SegmentTimeline>\n';
         for s in self.segments:
             xml += s.asXML()
+        xml += '        </SegmentTimeline>\n';
         xml += '      </SegmentTemplate>\n'
         for r in self.representations:
             xml += r.asXML()
@@ -130,7 +134,8 @@ class MPD:
         self.playlistlocator = playlistlocator
         self.as_video = None
         self.as_audio = None
-        self.profilepattern = 'master(\d+).m3u8';
+        self.profilepattern = 'master(\d+).m3u8'
+        self.numberpattern = 'master\d+_(\d+).ts'
         self.maxSegmentDuration = 10
         self.periodDuration = 30
         self.isRemote = False
@@ -163,7 +168,7 @@ class MPD:
 
     def asXML(self):
         xml = '<?xml version="1.0"?>';
-        xml += '<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="dynamic" minimumUpdatePeriod="PT4S" minBufferTime="PT1.500S" maxSegmentDuration="%s">\n' % (PT(self.maxSegmentDuration))
+        xml += '<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="dynamic" minimumUpdatePeriod="PT20S" minBufferTime="PT1.500S" maxSegmentDuration="%s">\n' % (PT(self.maxSegmentDuration))
         xml += '  <Period id="1" start="PT0S" duration="%s">\n' % PT(self.periodDuration)
         xml += self.as_video.asXML()
         xml += self.as_audio.asXML()
@@ -177,6 +182,12 @@ class MPD:
             return result.group(1)
         else:
             return len(self.representations)
+
+    def _getStartNumberFromFilename(self, filename):
+        result = re.match(self.numberpattern, filename)
+        if result:
+            return result.group(1)
+        return 0
 
     def _parsePlaylist(self, playlist):
         self.maxSegmentDuration = playlist.target_duration
@@ -193,7 +204,9 @@ class MPD:
                 startTime = self._getStartTimeFromFile(seg.uri)
                 videoseg.setStartTime(startTime)
                 audioseg.setStartTime(startTime)
+                self.as_video.setStartNumber(self._getStartNumberFromFilename(seg.uri))
                 self.as_video.setStartTime(startTime)
+                self.as_audio.setStartNumber(self._getStartNumberFromFilename(seg.uri))
                 self.as_audio.setStartTime(startTime)
             isFirst = False
     
