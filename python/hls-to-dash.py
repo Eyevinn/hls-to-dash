@@ -133,10 +133,13 @@ class MPD:
         self.profilepattern = 'master(\d+).m3u8';
         self.maxSegmentDuration = 10
         self.periodDuration = 30
+        self.isRemote = False
         self.baseurl = ''
         res = re.match('^(.*)/.*.m3u8$', playlistlocator)
         if res:
             self.baseurl = res.group(1) + '/'
+	if re.match('^http', playlistlocator):
+            self.isRemote = True
 
     def setProfilePattern(self, profilepattern):
         self.profilepattern = profilepatten
@@ -195,16 +198,19 @@ class MPD:
             isFirst = False
     
     def _getStartTimeFromFile(self, uri):
-        tmpfile = tempfile.NamedTemporaryFile()
-        if not re.match('^http', uri):
-            uri = self.baseurl + uri
-        c = pycurl.Curl()
-        c.setopt(c.URL, uri)
-        c.setopt(c.WRITEDATA, tmpfile)
-        c.perform()
-        c.close()
-        probedata = FFProbe(tmpfile.name)
-        tmpfile.close()
+        if self.isRemote:
+            tmpfile = tempfile.NamedTemporaryFile()
+            if not re.match('^http', uri):
+                uri = self.baseurl + uri
+            c = pycurl.Curl()
+            c.setopt(c.URL, uri)
+            c.setopt(c.WRITEDATA, tmpfile)
+            c.perform()
+            c.close()
+            probedata = FFProbe(tmpfile.name)
+            tmpfile.close()
+        else:
+            probedata = FFProbe(self.baseurl + uri)
         if len(probedata.streams) > 0:
            return int(float(probedata.streams[0].start_time))
         
