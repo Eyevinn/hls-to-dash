@@ -31,9 +31,9 @@ class MPD_Segment:
         self.startTime = startTime
     def asXML(self):
         if self.isFirst:
-            xml = '        <S t="%d" d="%d" />\n' % (self.startTime * self.timescale, self.duration * self.timescale)
+            xml = '        <S t="%d" d="%d" />\n' % (int(self.startTime * self.timescale), self.duration * self.timescale)
         else:
-            xml = '        <S d="%d" />\n' % (self.duration * self.timescale)
+            xml = '        <S d="%d" />\n' % (int(self.duration * self.timescale))
         return xml
     def __str__(self):
         return '(duration=%s)' % (self.duration)
@@ -83,11 +83,13 @@ class MPD_AdaptationSet:
     def setStartNumber(self, startNumber):
         self.startNumber = startNumber.lstrip('0')
     def setStartTime(self, startTime):
-        self.presentationTimeOffset = startTime * self.timescale
+        self.presentationTimeOffset = int(startTime * self.timescale)
     def __str__(self):
         s = "(mimeType=%s, codec=%s, representations=%d):\n" % (self.mimeType, self.codec, len(self.representations))
         for r in self.representations:
             s += "        + " + str(r) + "\n"
+        for seg in self.segments:
+            s += "           + " + str(seg) + "\n"
         return s
 
 class MPD_AdaptationSetVideo(MPD_AdaptationSet):
@@ -102,7 +104,7 @@ class MPD_AdaptationSetVideo(MPD_AdaptationSet):
         minHeight = self.representations[min(idxlist, key = lambda x: self.representations[x].getHeight())].getHeight()
         minBandwidth = self.representations[min(idxlist, key = lambda x: self.representations[x].getBandwidth())].getBandwidth()
         xml = ''
-        xml += '    <AdaptationSet mimeType="%s" codecs="%s" minWidth="%d" maxWidth="%d" minHeight="%d" maxHeight="%d" segmentAlignment="true" minBandwidth="%d" maxBandwidth="%d">\n' % (self.mimeType, self.codec, minWidth, maxWidth, minHeight, maxHeight, minBandwidth, maxBandwidth)
+        xml += '    <AdaptationSet mimeType="%s" codecs="%s" minWidth="%d" maxWidth="%d" minHeight="%d" maxHeight="%d" startWithSAP="1" segmentAlignment="true" minBandwidth="%d" maxBandwidth="%d">\n' % (self.mimeType, self.codec, minWidth, maxWidth, minHeight, maxHeight, minBandwidth, maxBandwidth)
         xml += '      <SegmentTemplate timescale="%d" media="$RepresentationID$_$Number$.dash" startNumber="%s">\n' % (self.timescale, self.startNumber)
         xml += '        <SegmentTimeline>\n';
         for s in self.segments:
@@ -167,8 +169,8 @@ class MPD:
         p = m3u8_obj.playlists[0]
         debug_print("Loading playlist: ", self.baseurl + p.uri)
         self._parsePlaylist(m3u8.load(self.baseurl + p.uri))
-        #debug_print("Audio: ", self.as_audio)
-        #debug_print("Video: ", self.as_video)
+        debug_print("Audio: ", self.as_audio)
+        debug_print("Video: ", self.as_video)
 
     def asXML(self):
         xml = '<?xml version="1.0"?>';
@@ -207,12 +209,12 @@ class MPD:
         isFirst = True
         for seg in playlist.segments:
             #debug_print(vars(seg))
-            duration = int(seg.duration)
+            duration = float(seg.duration)
             videoseg = MPD_Segment(duration, isFirst)
             audioseg = MPD_Segment(duration, isFirst)
             self.as_video.addSegment(videoseg)
             self.as_audio.addSegment(audioseg)
-            self.periodDuration += duration
+            self.periodDuration += int(duration)
             if isFirst:
                 self.startTime = self._getStartTimeFromFile(seg.uri)
                 videoseg.setStartTime(self.startTime)
@@ -238,7 +240,7 @@ class MPD:
         else:
             probedata = FFProbe(self.baseurl + uri)
         if len(probedata.streams) > 0:
-           return int(float(probedata.streams[0].start_time))
+           return float(probedata.streams[0].start_time)
         
     def _parseMaster(self, variant):
         debug_print("Parsing master playlist")
