@@ -11,6 +11,7 @@ import re
 import tempfile
 from ffprobe import FFProbe
 import datetime
+import time
 
 class PT:
     def __init__(self, seconds):
@@ -101,8 +102,8 @@ class MPD_AdaptationSetVideo(MPD_AdaptationSet):
         minHeight = self.representations[min(idxlist, key = lambda x: self.representations[x].getHeight())].getHeight()
         minBandwidth = self.representations[min(idxlist, key = lambda x: self.representations[x].getBandwidth())].getBandwidth()
         xml = ''
-        xml += '    <AdaptationSet mimeType="%s" codecs="%s" segmentAlignment="true" minWidth="%d" maxWidth="%d" minHeight="%d" maxHeight="%d" startWithSAP="1" minBandwidth="%d" maxBandwidth="%d">\n' % (self.mimeType, self.codec, minWidth, maxWidth, minHeight, maxHeight, minBandwidth, maxBandwidth)
-        xml += '      <SegmentTemplate timescale="%d" initialization="$RepresentationID$_%s.dash" media="$RepresentationID$_$Number$.dash" startNumber="%s" presentationTimeOffset="%d">\n' % (self.timescale, self.startNumber, self.startNumber, self.presentationTimeOffset)
+        xml += '    <AdaptationSet mimeType="%s" codecs="%s" minWidth="%d" maxWidth="%d" minHeight="%d" maxHeight="%d" segmentAlignment="true" minBandwidth="%d" maxBandwidth="%d">\n' % (self.mimeType, self.codec, minWidth, maxWidth, minHeight, maxHeight, minBandwidth, maxBandwidth)
+        xml += '      <SegmentTemplate timescale="%d" media="$RepresentationID$_$Number$.dash" startNumber="%s">\n' % (self.timescale, self.startNumber)
         xml += '        <SegmentTimeline>\n';
         for s in self.segments:
             xml += s.asXML()
@@ -119,7 +120,7 @@ class MPD_AdaptationSetAudio(MPD_AdaptationSet):
     def asXML(self):
         xml = ''
         xml += '    <AdaptationSet mimeType="%s" codecs="%s">\n' % (self.mimeType, self.codec)
-        xml += '      <SegmentTemplate timescale="%d" initialization="$RepresentationID$_%s.dash" media="$RepresentationID$_$Number$.dash" startNumber="%s" presentationTimeOffset="%d">\n' % (self.timescale, self.startNumber, self.startNumber, self.presentationTimeOffset)
+        xml += '      <SegmentTemplate timescale="%d" media="$RepresentationID$_$Number$.dash" startNumber="%s">\n' % (self.timescale, self.startNumber)
         xml += '        <SegmentTimeline>\n';
         for s in self.segments:
             xml += s.asXML()
@@ -139,6 +140,8 @@ class MPD:
         self.numberpattern = 'master\d+_(\d+).ts'
         self.maxSegmentDuration = 10
         self.periodDuration = 30
+        self.periodStart = 0
+        self.startTime = 0
         self.isRemote = False
         self.baseurl = ''
         res = re.match('^(.*)/.*.m3u8$', playlistlocator)
@@ -169,9 +172,9 @@ class MPD:
 
     def asXML(self):
         xml = '<?xml version="1.0"?>';
-        xml += '<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="dynamic" minimumUpdatePeriod="PT10S" minBufferTime="PT1.500S" maxSegmentDuration="%s" availabilityStartTime="1970-01-01T00:00:00Z" publishTime="%s">\n' % (PT(self.maxSegmentDuration), self._getPublishTime())
+        xml += '<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="dynamic" minimumUpdatePeriod="PT10S" minBufferTime="PT1.500S" maxSegmentDuration="%s" availabilityStartTime="%s" publishTime="%s">\n' % (PT(self.maxSegmentDuration), self._getAvailabilityStartTime(), self._getPublishTime())
         #xml += '  <Period id="1" start="PT0S" duration="%s">\n' % PT(self.periodDuration)
-        xml += '  <Period id="1" start="PT0S">\n'
+        xml += '  <Period id="1" start="%s">\n' % PT(self.periodStart)
         xml += self.as_video.asXML()
         xml += self.as_audio.asXML()
         xml += '  </Period>\n'
@@ -184,6 +187,11 @@ class MPD:
             return result.group(1)
         else:
             return len(self.representations)
+
+    def _getAvailabilityStartTime(self):
+        tsnow = time.time()
+        availstart = tsnow - self.startTime
+        return datetime.datetime.fromtimestamp(availstart).isoformat() + "Z"
 
     def _getPublishTime(self):
         return datetime.datetime.utcnow().isoformat() + "Z"
@@ -206,13 +214,13 @@ class MPD:
             self.as_audio.addSegment(audioseg)
             self.periodDuration += duration
             if isFirst:
-                startTime = self._getStartTimeFromFile(seg.uri)
-                videoseg.setStartTime(startTime)
-                audioseg.setStartTime(startTime)
+                self.startTime = self._getStartTimeFromFile(seg.uri)
+                videoseg.setStartTime(self.startTime)
+                audioseg.setStartTime(self.startTime)
                 self.as_video.setStartNumber(self._getStartNumberFromFilename(seg.uri))
-                self.as_video.setStartTime(startTime)
+                self.as_video.setStartTime(self.startTime)
                 self.as_audio.setStartNumber(self._getStartNumberFromFilename(seg.uri))
-                self.as_audio.setStartTime(startTime)
+                self.as_audio.setStartTime(self.startTime)
             isFirst = False
     
     def _getStartTimeFromFile(self, uri):
