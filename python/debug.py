@@ -1,8 +1,8 @@
 from __future__ import print_function
 import sys
 
-doDebug = False
 global doDebug
+doDebug = False
 
 def log(*args, **kwargs):
     if doDebug:
