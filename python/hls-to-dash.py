@@ -10,6 +10,7 @@ import pycurl
 import re
 import tempfile
 from ffprobe import FFProbe
+import datetime
 
 class PT:
     def __init__(self, seconds):
@@ -100,8 +101,8 @@ class MPD_AdaptationSetVideo(MPD_AdaptationSet):
         minHeight = self.representations[min(idxlist, key = lambda x: self.representations[x].getHeight())].getHeight()
         minBandwidth = self.representations[min(idxlist, key = lambda x: self.representations[x].getBandwidth())].getBandwidth()
         xml = ''
-        xml += '    <AdaptationSet mimeType="%s" codecs="%s" segmentAlignment="true" minWidth="%d" maxWidth="%d" minHeight="%d" maxHeight="%d" startWithSAP="1" minBandwidth="%d" maxBandwidth="%d">\n' % (self.mimeType, self.codec, minWidth, minHeight, maxWidth, maxHeight, minBandwidth, maxBandwidth)
-        xml += '      <SegmentTemplate timescale="%d" media="$RepresentationID$_$Number$.dash" startNumber="%s" presentationTimeOffset="%d">\n' % (self.timescale, self.startNumber, self.presentationTimeOffset)
+        xml += '    <AdaptationSet mimeType="%s" codecs="%s" segmentAlignment="true" minWidth="%d" maxWidth="%d" minHeight="%d" maxHeight="%d" startWithSAP="1" minBandwidth="%d" maxBandwidth="%d">\n' % (self.mimeType, self.codec, minWidth, maxWidth, minHeight, maxHeight, minBandwidth, maxBandwidth)
+        xml += '      <SegmentTemplate timescale="%d" initialization="$RepresentationID$_%s.dash" media="$RepresentationID$_$Number$.dash" startNumber="%s" presentationTimeOffset="%d">\n' % (self.timescale, self.startNumber, self.startNumber, self.presentationTimeOffset)
         xml += '        <SegmentTimeline>\n';
         for s in self.segments:
             xml += s.asXML()
@@ -118,7 +119,7 @@ class MPD_AdaptationSetAudio(MPD_AdaptationSet):
     def asXML(self):
         xml = ''
         xml += '    <AdaptationSet mimeType="%s" codecs="%s">\n' % (self.mimeType, self.codec)
-        xml += '      <SegmentTemplate timescale="%d" media="$RepresentationID$_$Number$.dash" startNumber="%s" presentationTimeOffset="%d">\n' % (self.timescale, self.startNumber, self.presentationTimeOffset)
+        xml += '      <SegmentTemplate timescale="%d" initialization="$RepresentationID$_%s.dash" media="$RepresentationID$_$Number$.dash" startNumber="%s" presentationTimeOffset="%d">\n' % (self.timescale, self.startNumber, self.startNumber, self.presentationTimeOffset)
         xml += '        <SegmentTimeline>\n';
         for s in self.segments:
             xml += s.asXML()
@@ -168,9 +169,9 @@ class MPD:
 
     def asXML(self):
         xml = '<?xml version="1.0"?>';
-        xml += '<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="dynamic" minimumUpdatePeriod="PT10S" minBufferTime="PT1.500S" maxSegmentDuration="%s">\n' % (PT(self.maxSegmentDuration))
-        xml += '  <Period id="1" start="PT0S" duration="%s">\n' % PT(self.periodDuration)
-        #xml += '  <Period id="1" start="PT0S">\n' % PT(self.periodDuration)
+        xml += '<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="dynamic" minimumUpdatePeriod="PT10S" minBufferTime="PT1.500S" maxSegmentDuration="%s" availabilityStartTime="1970-01-01T00:00:00Z" publishTime="%s">\n' % (PT(self.maxSegmentDuration), self._getPublishTime())
+        #xml += '  <Period id="1" start="PT0S" duration="%s">\n' % PT(self.periodDuration)
+        xml += '  <Period id="1" start="PT0S">\n'
         xml += self.as_video.asXML()
         xml += self.as_audio.asXML()
         xml += '  </Period>\n'
@@ -183,6 +184,9 @@ class MPD:
             return result.group(1)
         else:
             return len(self.representations)
+
+    def _getPublishTime(self):
+        return datetime.datetime.utcnow().isoformat() + "Z"
 
     def _getStartNumberFromFilename(self, filename):
         result = re.match(self.numberpattern, filename)
@@ -252,6 +256,7 @@ def main():
     parser = argparse.ArgumentParser(description='Generate an MPEG DASH manifest from a live HLS source including the option to download and rewrap TS segments to MP4 fragments. Writes MPEG DASH manifest to stdout')
     parser.add_argument('playlist', metavar='PLAYLIST', help='Path to HLS playlist file. Can be a URI or local file.')
     parser.add_argument('--remux', dest='remux', action='store_true', default=False, help='download and remux TS segments to MP4 fragments (requires ffmpeg and patched mp4packager (Bento4)')
+    parser.add_argument('--renumber', dest='renumber', action='store_true', default=False, help='Renumber all segments. Can only be used in combination with --remux')
     parser.add_argument('--debug', dest='debug', action='store_true', default=False)
     args = parser.parse_args()
     global Options
