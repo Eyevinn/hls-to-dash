@@ -8,6 +8,7 @@ from ffprobe import FFProbe
 from lib import util
 from lib import MPDAdaptationSet
 from lib import MPDRepresentation
+from lib import TS
 import debug
 
 class Base:
@@ -104,20 +105,13 @@ class HLS(Base):
     
     def _getStartTimeFromFile(self, uri):
         if self.isRemote:
-            tmpfile = tempfile.NamedTemporaryFile()
             if not re.match('^http', uri):
                 uri = self.baseurl + uri
-            c = pycurl.Curl()
-            c.setopt(c.URL, uri)
-            c.setopt(c.WRITEDATA, tmpfile)
-            c.perform()
-            c.close()
-            probedata = FFProbe(tmpfile.name)
-            tmpfile.close()
+            ts = TS.Remote(uri)
         else:
-            probedata = FFProbe(self.baseurl + uri)
-        if len(probedata.streams) > 0:
-           return float(probedata.streams[0].start_time)
+            ts = TS.Local(uri)
+        ts.probe()
+        return ts.getStartTime()
         
     def _parseMaster(self, variant):
         debug.log("Parsing master playlist")
