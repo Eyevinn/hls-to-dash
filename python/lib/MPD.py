@@ -109,7 +109,7 @@ class HLS(Base):
                 uri = self.baseurl + uri
             ts = TS.Remote(uri)
         else:
-            ts = TS.Local(uri)
+            ts = TS.Local(self.baseurl + uri)
         ts.probe()
         return ts.getStartTime()
         
