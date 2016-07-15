@@ -18,6 +18,8 @@ class Period:
         self.periodDuration = 30
         self.as_video = None
         self.as_audio = None
+    def setPeriodStart(self, start):
+        self.periodStart = start
     def increaseDuration(self, duration):
         self.periodDuration += duration
     def addAdaptationSetVideo(self, as_video):
@@ -42,24 +44,28 @@ class Period:
 class Base:
     def __init__(self):
         self.maxSegmentDuration = 10
-        self.startTime = 0
+        self.firstSegmentStartTime = 0
         self.periods = []
         period = Period('1')
+        period.setPeriodStart(0)
         self.periods.append(period)
     def havePeriods(self):
         return len(self.periods) > 0
     def getPeriod(self, idx):
         return self.periods[idx]
+    def getAllPeriods(self):
+        return self.periods;
     def asXML(self):
         xml = '<?xml version="1.0"?>';
         xml += '<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="dynamic" minimumUpdatePeriod="PT10S" minBufferTime="PT1.500S" maxSegmentDuration="%s" availabilityStartTime="%s" publishTime="%s">\n' % (util.PT(self.maxSegmentDuration), self._getAvailabilityStartTime(), self._getPublishTime())
         if self.havePeriods():
-            xml += self.getPeriod(0).asXML()
+            for p in self.getAllPeriods():
+                xml += p.asXML()
         xml += '</MPD>\n'
         return xml
     def _getAvailabilityStartTime(self):
         tsnow = time.time()
-        availstart = tsnow - self.startTime
+        availstart = tsnow - self.firstSegmentStartTime
         return datetime.datetime.fromtimestamp(availstart).isoformat() + "Z"
     def _getPublishTime(self):
         return datetime.datetime.utcnow().isoformat() + "Z"
@@ -78,6 +84,7 @@ class HLS(Base):
             self.baseurl = res.group(1) + '/'
 	if re.match('^http', playlistlocator):
             self.isRemote = True
+        self.currentPeriod = 0
 
     def setProfilePattern(self, profilepattern):
         self.profilepattern = profilepatten
@@ -94,8 +101,9 @@ class HLS(Base):
         p = m3u8_obj.playlists[0]
         debug.log("Loading playlist: ", self.baseurl + p.uri)
         self._parsePlaylist(m3u8.load(self.baseurl + p.uri))
-        debug.log("Audio: ", self.getPeriod(0).as_audio)
-        debug.log("Video: ", self.getPeriod(0).as_video)
+        for per in self.getAllPeriods():
+            debug.log("Audio: ", per.as_audio)
+            debug.log("Video: ", per.as_video)
 
     def _profileFromFilename(self, filename):
         result = re.match(self.profilepattern, filename)
@@ -114,23 +122,23 @@ class HLS(Base):
         self.maxSegmentDuration = playlist.target_duration
         isFirst = True
         for seg in playlist.segments:
-            #debug_print(vars(seg))
             duration = float(seg.duration)
             videoseg = MPDRepresentation.Segment(duration, isFirst)
             audioseg = MPDRepresentation.Segment(duration, isFirst)
-            self.getPeriod(0).getAdaptationSetVideo().addSegment(videoseg)
-            self.getPeriod(0).getAdaptationSetAudio().addSegment(audioseg)
-            self.getPeriod(0).increaseDuration(int(duration))
+            period = self.getPeriod(self.currentPeriod)
+            period.getAdaptationSetVideo().addSegment(videoseg)
+            period.getAdaptationSetAudio().addSegment(audioseg)
+            period.increaseDuration(int(duration))
             if isFirst:
-                self.startTime = self._getStartTimeFromFile(seg.uri)
-                videoseg.setStartTime(self.startTime)
-                audioseg.setStartTime(self.startTime)
-                as_audio = self.getPeriod(0).getAdaptationSetAudio()
-                as_video = self.getPeriod(0).getAdaptationSetVideo()
+                self.firstSegmentStartTime = self._getStartTimeFromFile(seg.uri)
+                videoseg.setStartTime(self.firstSegmentStartTime)
+                audioseg.setStartTime(self.firstSegmentStartTime)
+                as_audio = period.getAdaptationSetAudio()
+                as_video = period.getAdaptationSetVideo()
                 as_video.setStartNumber(self._getStartNumberFromFilename(seg.uri))
-                as_video.setStartTime(self.startTime)
+                as_video.setStartTime(self.firstSegmentStartTime)
                 as_audio.setStartNumber(self._getStartNumberFromFilename(seg.uri))
-                as_audio.setStartTime(self.startTime)
+                as_audio.setStartTime(self.firstSegmentStartTime)
             isFirst = False
     
     def _getStartTimeFromFile(self, uri):
@@ -149,15 +157,16 @@ class HLS(Base):
             stream = playlist.stream_info
             (video_codec, audio_codec) = stream.codecs.split(',')
             profile = self._profileFromFilename(playlist.uri) 
-            if not self.getPeriod(0).haveAdaptationSetVideo():
+            period = self.getPeriod(self.currentPeriod)
+            if not period.haveAdaptationSetVideo():
                 as_video = MPDAdaptationSet.Video('video/mp4', video_codec) 
-                self.getPeriod(0).addAdaptationSetVideo(as_video)
-            if not self.getPeriod(0).haveAdaptationSetAudio():
+                period.addAdaptationSetVideo(as_video)
+            if not period.haveAdaptationSetAudio():
                 as_audio = MPDAdaptationSet.Audio('audio/mp4', audio_codec) 
                 audio_representation = MPDRepresentation.Audio('audio-%s' % profile, 96000)
                 as_audio.addRepresentation(audio_representation)
-                self.getPeriod(0).addAdaptationSetAudio(as_audio)
+                period.addAdaptationSetAudio(as_audio)
             video_representation = MPDRepresentation.Video('video-%s' % profile, stream.bandwidth, stream.resolution[0], stream.resolution[1])
-            self.getPeriod(0).getAdaptationSetVideo().addRepresentation(video_representation)
+            period.getAdaptationSetVideo().addRepresentation(video_representation)
 
 
