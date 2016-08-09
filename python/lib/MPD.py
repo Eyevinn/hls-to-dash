@@ -181,7 +181,7 @@ class HLS(Base):
             period.getAdaptationSetAudio().addSegment(audioseg)
             period.increaseDuration(int(duration))
             if isFirst:
-                self.firstSegmentStartTime = self._getStartTimeFromFile(seg.uri)
+                self.firstSegmentStartTime = self._getStartTimeFromFile(self.baseurl + seg.uri)
                 videoseg.setStartTime(self.firstSegmentStartTime)
                 audioseg.setStartTime(self.firstSegmentStartTime)
                 as_audio = period.getAdaptationSetAudio()
