@@ -18,6 +18,7 @@ class Period:
         self.periodDuration = 30
         self.as_video = None
         self.as_audio = None
+        self.eventstream = []
     def setPeriodStart(self, start):
         self.periodStart = start
     def increaseDuration(self, duration):
@@ -34,11 +35,44 @@ class Period:
         return self.as_audio != None
     def getAdaptationSetAudio(self):
         return self.as_audio
+    def addSCTE35Splice(self, id, duration, scte35):
+        event = SCTE35Event(id, int(duration), scte35)
+        self.eventstream.append(event)
     def asXML(self):
         xml = '  <Period id="%s" start="%s">\n' % (self.id, util.PT(self.periodStart))
+        if len(self.eventstream) > 0:
+            timescale = self.eventstream[0].getTimescale()
+            xml += '    <EventStream timescale="%d" schemeIdUri="urn:scte:scte35:2014:xml+bin">\n' % timescale
+            for ev in self.eventstream:
+                xml += ev.asXML()
+            xml += '    </EventStream>\n'
         xml += self.as_video.asXML()
         xml += self.as_audio.asXML()
         xml += '  </Period>\n'
+        return xml
+
+class PeriodEvent:
+    def __init__(self, id, duration):
+        self.duration = duration
+        self.id = id
+        self.timescale = 90000
+    def getTimescale(self):
+        return self.timescale
+    def getId(self):
+        return self.id
+
+class SCTE35Event(PeriodEvent):
+    def __init__(self, id, duration, scte35):
+        PeriodEvent.__init__(self, id, duration)
+        self.scte35 = scte35
+    def asXML(self):
+        xml = '      <Event duration="%d" id="%d">\n' % (self.timescale * self.duration, self.getId())
+        xml += '       <scte35:Signal>\n'
+        xml += '         <scte35:Binary>\n'
+        xml += '           %s\n' % self.scte35 
+        xml += '         </scte35:Binary>\n'
+        xml += '       </scte35:Signal>\n'
+        xml += '      </Event>\n'
         return xml
 
 class Base:
@@ -48,13 +82,15 @@ class Base:
         self.periods = []
         period = Period('1')
         period.setPeriodStart(0)
-        self.periods.append(period)
+        self.appendPeriod(period)
     def havePeriods(self):
         return len(self.periods) > 0
     def getPeriod(self, idx):
         return self.periods[idx]
     def getAllPeriods(self):
         return self.periods;
+    def appendPeriod(self, period):
+        self.periods.append(period)
     def asXML(self):
         xml = '<?xml version="1.0"?>';
         xml += '<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="dynamic" minimumUpdatePeriod="PT10S" minBufferTime="PT1.500S" maxSegmentDuration="%s" availabilityStartTime="%s" publishTime="%s">\n' % (util.PT(self.maxSegmentDuration), self._getAvailabilityStartTime(), self._getPublishTime())
@@ -85,6 +121,7 @@ class HLS(Base):
 	if re.match('^http', playlistlocator):
             self.isRemote = True
         self.currentPeriod = 0
+        self.profiles = []
 
     def setProfilePattern(self, profilepattern):
         self.profilepattern = profilepatten
@@ -121,7 +158,21 @@ class HLS(Base):
     def _parsePlaylist(self, playlist):
         self.maxSegmentDuration = playlist.target_duration
         isFirst = True
+        lastcuestate = False
+        eventid = 1
         for seg in playlist.segments:
+            if not seg.cue_out == lastcuestate:
+                lastcuestate = seg.cue_out
+                debug.log("Split period here")
+                self.currentPeriod = self.currentPeriod + 1
+                newperiod = Period(str(self.currentPeriod + 1))
+                if seg.cue_out == True:
+                    debug.log("SCTE35:%s" % seg.scte35)
+                    newperiod.addSCTE35Splice(eventid, seg.scte35_duration, seg.scte35)
+                    eventid = eventid + 1
+                self._initiatePeriod(newperiod, self.profiles)
+                self.appendPeriod(newperiod)
+                isFirst = True
             duration = float(seg.duration)
             videoseg = MPDRepresentation.Segment(duration, isFirst)
             audioseg = MPDRepresentation.Segment(duration, isFirst)
@@ -150,6 +201,19 @@ class HLS(Base):
             ts = TS.Local(uri)
         ts.probe()
         return ts.getStartTime()
+
+    def _initiatePeriod(self, period, profiles):
+        for p in profiles:
+            if not period.haveAdaptationSetVideo():
+                as_video = MPDAdaptationSet.Video('video/mp4', p['videocodec']) 
+                period.addAdaptationSetVideo(as_video)
+            if not period.haveAdaptationSetAudio():
+                as_audio = MPDAdaptationSet.Audio('audio/mp4', p['audiocodec']) 
+                audio_representation = MPDRepresentation.Audio('audio-%s' % p['profile'], 96000)
+                as_audio.addRepresentation(audio_representation)
+                period.addAdaptationSetAudio(as_audio)
+            video_representation = MPDRepresentation.Video('video-%s' % p['profile'], p['stream'].bandwidth, p['stream'].resolution[0], p['stream'].resolution[1])
+            period.getAdaptationSetVideo().addRepresentation(video_representation)
         
     def _parseMaster(self, variant):
         debug.log("Parsing master playlist")
@@ -157,16 +221,13 @@ class HLS(Base):
             stream = playlist.stream_info
             (video_codec, audio_codec) = stream.codecs.split(',')
             profile = self._profileFromFilename(playlist.uri) 
-            period = self.getPeriod(self.currentPeriod)
-            if not period.haveAdaptationSetVideo():
-                as_video = MPDAdaptationSet.Video('video/mp4', video_codec) 
-                period.addAdaptationSetVideo(as_video)
-            if not period.haveAdaptationSetAudio():
-                as_audio = MPDAdaptationSet.Audio('audio/mp4', audio_codec) 
-                audio_representation = MPDRepresentation.Audio('audio-%s' % profile, 96000)
-                as_audio.addRepresentation(audio_representation)
-                period.addAdaptationSetAudio(as_audio)
-            video_representation = MPDRepresentation.Video('video-%s' % profile, stream.bandwidth, stream.resolution[0], stream.resolution[1])
-            period.getAdaptationSetVideo().addRepresentation(video_representation)
+            profilemetadata = {
+                'profile': profile,
+                'videocodec': video_codec,
+                'audiocodec': audio_codec,
+                'stream': stream
+            }
+            self.profiles.append(profilemetadata)
+        self._initiatePeriod(self.getPeriod(self.currentPeriod), self.profiles)
 
 
