@@ -15,14 +15,17 @@ class Period:
     def __init__(self, periodid):
         self.id = periodid
         self.periodStart = 0
-        self.periodDuration = 30
+        self.periodDuration = 0.0
         self.as_video = None
         self.as_audio = None
         self.eventstream = []
+        self.isLastPeriod = False
     def setPeriodStart(self, start):
         self.periodStart = start
     def increaseDuration(self, duration):
         self.periodDuration += duration
+    def setAsLastPeriod(self):
+        self.isLastPeriod = True
     def addAdaptationSetVideo(self, as_video):
         self.as_video = as_video
     def haveAdaptationSetVideo(self):
@@ -39,7 +42,10 @@ class Period:
         event = SCTE35Event(id, int(duration), scte35)
         self.eventstream.append(event)
     def asXML(self):
-        xml = '  <Period id="%s" start="%s">\n' % (self.id, util.PT(self.periodStart))
+        if self.isLastPeriod:
+            xml = '  <Period id="%s" start="%s">\n' % (self.id, util.PT(self.periodStart))
+        else:
+            xml = '  <Period id="%s" start="%s" duration="%s">\n' % (self.id, util.PT(self.periodStart), util.PT(self.periodDuration))
         if len(self.eventstream) > 0:
             timescale = self.eventstream[0].getTimescale()
             xml += '    <EventStream timescale="%d" schemeIdUri="urn:scte:scte35:2014:xml+bin">\n' % timescale
@@ -179,7 +185,7 @@ class HLS(Base):
             period = self.getPeriod(self.currentPeriod)
             period.getAdaptationSetVideo().addSegment(videoseg)
             period.getAdaptationSetAudio().addSegment(audioseg)
-            period.increaseDuration(int(duration))
+            period.increaseDuration(duration)
             if isFirst:
                 self.firstSegmentStartTime = self._getStartTimeFromFile(self.baseurl + seg.uri)
                 videoseg.setStartTime(self.firstSegmentStartTime)
@@ -193,6 +199,8 @@ class HLS(Base):
                 as_audio.setStartNumber(self._getStartNumberFromFilename(seg.uri))
                 as_audio.setStartTime(self.firstSegmentStartTime)
             isFirst = False
+        allperiods = self.getAllPeriods()
+        allperiods[len(allperiods)-1].setAsLastPeriod()
     
     def _getStartTimeFromFile(self, uri):
         if self.isRemote:
