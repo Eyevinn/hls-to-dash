@@ -14,7 +14,7 @@ import debug
 class Period:
     def __init__(self, periodid):
         self.id = periodid
-        self.periodStart = 0
+        self.periodStart = 0.0
         self.periodDuration = 0.0
         self.as_video = None
         self.as_audio = None
@@ -87,7 +87,7 @@ class Base:
         self.firstSegmentStartTime = 0
         self.periods = []
         period = Period('1')
-        period.setPeriodStart(0)
+        period.setPeriodStart(0.0)
         self.appendPeriod(period)
     def havePeriods(self):
         return len(self.periods) > 0
@@ -166,6 +166,7 @@ class HLS(Base):
         isFirst = True
         lastcuestate = False
         eventid = 1
+        offset = 0.0
         for seg in playlist.segments:
             if not seg.cue_out == lastcuestate:
                 lastcuestate = seg.cue_out
@@ -179,6 +180,7 @@ class HLS(Base):
                 self._initiatePeriod(newperiod, self.profiles)
                 self.appendPeriod(newperiod)
                 isFirst = True
+                newperiod.setPeriodStart(offset)
             duration = float(seg.duration)
             videoseg = MPDRepresentation.Segment(duration, isFirst)
             audioseg = MPDRepresentation.Segment(duration, isFirst)
@@ -186,12 +188,11 @@ class HLS(Base):
             period.getAdaptationSetVideo().addSegment(videoseg)
             period.getAdaptationSetAudio().addSegment(audioseg)
             period.increaseDuration(duration)
+            offset += duration
             if isFirst:
                 self.firstSegmentStartTime = self._getStartTimeFromFile(self.baseurl + seg.uri)
                 videoseg.setStartTime(self.firstSegmentStartTime)
                 audioseg.setStartTime(self.firstSegmentStartTime)
-                if self.currentPeriod > 0:
-                    period.setPeriodStart(self.firstSegmentStartTime)
                 as_audio = period.getAdaptationSetAudio()
                 as_video = period.getAdaptationSetVideo()
                 as_video.setStartNumber(self._getStartNumberFromFilename(seg.uri))
