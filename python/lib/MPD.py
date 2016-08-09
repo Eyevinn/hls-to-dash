@@ -174,8 +174,8 @@ class HLS(Base):
                 self.appendPeriod(newperiod)
                 isFirst = True
             duration = float(seg.duration)
-            videoseg = MPDRepresentation.Segment(duration, isFirst and self.currentPeriod == 0)
-            audioseg = MPDRepresentation.Segment(duration, isFirst and self.currentPeriod == 0)
+            videoseg = MPDRepresentation.Segment(duration, isFirst)
+            audioseg = MPDRepresentation.Segment(duration, isFirst)
             period = self.getPeriod(self.currentPeriod)
             period.getAdaptationSetVideo().addSegment(videoseg)
             period.getAdaptationSetAudio().addSegment(audioseg)
