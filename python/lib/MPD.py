@@ -174,8 +174,8 @@ class HLS(Base):
                 self.appendPeriod(newperiod)
                 isFirst = True
             duration = float(seg.duration)
-            videoseg = MPDRepresentation.Segment(duration, isFirst)
-            audioseg = MPDRepresentation.Segment(duration, isFirst)
+            videoseg = MPDRepresentation.Segment(duration, isFirst and self.currentPeriod == 0)
+            audioseg = MPDRepresentation.Segment(duration, isFirst and self.currentPeriod == 0)
             period = self.getPeriod(self.currentPeriod)
             period.getAdaptationSetVideo().addSegment(videoseg)
             period.getAdaptationSetAudio().addSegment(audioseg)
@@ -184,6 +184,8 @@ class HLS(Base):
                 self.firstSegmentStartTime = self._getStartTimeFromFile(self.baseurl + seg.uri)
                 videoseg.setStartTime(self.firstSegmentStartTime)
                 audioseg.setStartTime(self.firstSegmentStartTime)
+                if self.currentPeriod > 0:
+                    period.setPeriodStart(self.firstSegmentStartTime)
                 as_audio = period.getAdaptationSetAudio()
                 as_video = period.getAdaptationSetVideo()
                 as_video.setStartNumber(self._getStartNumberFromFilename(seg.uri))
