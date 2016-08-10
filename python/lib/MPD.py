@@ -161,22 +161,36 @@ class HLS(Base):
     def _parsePlaylist(self, playlist):
         self.maxSegmentDuration = playlist.target_duration
         isFirst = True
-        lastcuestate = False
+        doSplit = False
         eventid = 1
         offset = 0.0
+        state = 'initial'
         for seg in playlist.segments:
-            if not seg.cue_out == lastcuestate:
-                lastcuestate = seg.cue_out
-                debug.log("Split period here")
+            if state == 'initial':
+                if seg.cue_out == True:
+                    state = 'insidecue'
+                else:
+                    state = 'outsidecue'
+            elif state == 'outsidecue':
+                if seg.cue_out == True:
+                    state = 'insidecue'
+                    if not isFirst:
+                        doSplit = True
+            elif state == 'insidecue':
+                if seg.cue_out == False:
+                    state = 'outsidecue'
+                    if not isFirst:
+                        doSplit = True
+            debug.log("[%s][P%d]: %s" % (state, self.currentPeriod, seg.uri))
+
+            if doSplit:
+                debug.log("-- Split period before %s" % seg.uri)
                 self.currentPeriod = self.currentPeriod + 1
                 newperiod = Period(str(self.currentPeriod + 1))
-                if seg.cue_out == True:
-                    debug.log("SCTE35:%s" % seg.scte35)
-                    newperiod.addSCTE35Splice(eventid, seg.scte35_duration, seg.scte35)
-                    eventid = eventid + 1
                 self._initiatePeriod(newperiod, self.profiles)
                 self.appendPeriod(newperiod)
                 isFirst = True
+                doSplit = False
             duration = float(seg.duration)
             videoseg = MPDRepresentation.Segment(duration, isFirst)
             audioseg = MPDRepresentation.Segment(duration, isFirst)
@@ -186,6 +200,10 @@ class HLS(Base):
             period.increaseDuration(duration)
             offset += duration
             if isFirst:
+                if state == 'insidecue' and seg.cue_out == True:
+                    debug.log("SCTE35:%s" % seg.scte35)
+                    period.addSCTE35Splice(eventid, seg.scte35_duration, seg.scte35)
+                    eventid = eventid + 1
                 self.firstSegmentStartTime = self._getStartTimeFromFile(self.baseurl + seg.uri)
                 videoseg.setStartTime(self.firstSegmentStartTime)
                 audioseg.setStartTime(self.firstSegmentStartTime)
