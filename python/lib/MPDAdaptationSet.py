@@ -37,7 +37,7 @@ class Video(Base):
         minBandwidth = self.representations[min(idxlist, key = lambda x: self.representations[x].getBandwidth())].getBandwidth()
         xml = ''
         xml += '    <AdaptationSet mimeType="%s" codecs="%s" minWidth="%d" maxWidth="%d" minHeight="%d" maxHeight="%d" startWithSAP="1" segmentAlignment="true" minBandwidth="%d" maxBandwidth="%d">\n' % (self.mimeType, self.codec, minWidth, maxWidth, minHeight, maxHeight, minBandwidth, maxBandwidth)
-        xml += '      <SegmentTemplate timescale="%d" media="$RepresentationID$_$Number$.dash" startNumber="%s">\n' % (self.timescale, self.startNumber)
+        xml += '      <SegmentTemplate timescale="%d" media="$RepresentationID$_$Number$.dash" presentationTimeOffset="%s" startNumber="%s">\n' % (self.timescale, self.presentationTimeOffset, self.startNumber)
         xml += '        <SegmentTimeline>\n';
         for s in self.segments:
             xml += s.asXML()
@@ -54,7 +54,7 @@ class Audio(Base):
     def asXML(self):
         xml = ''
         xml += '    <AdaptationSet mimeType="%s" codecs="%s">\n' % (self.mimeType, self.codec)
-        xml += '      <SegmentTemplate timescale="%d" media="$RepresentationID$_$Number$.dash" startNumber="%s">\n' % (self.timescale, self.startNumber)
+        xml += '      <SegmentTemplate timescale="%d" media="$RepresentationID$_$Number$.dash" presentationTimeOffset="%s" startNumber="%s">\n' % (self.timescale, self.presentationTimeOffset, self.startNumber)
         xml += '        <SegmentTimeline>\n';
         for s in self.segments:
             xml += s.asXML()

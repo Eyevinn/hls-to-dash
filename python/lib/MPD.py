@@ -193,6 +193,7 @@ class HLS(Base):
                 self.firstSegmentStartTime = self._getStartTimeFromFile(self.baseurl + seg.uri)
                 videoseg.setStartTime(self.firstSegmentStartTime)
                 audioseg.setStartTime(self.firstSegmentStartTime)
+                period.setPeriodStart(self.firstSegmentStartTime)
                 as_audio = period.getAdaptationSetAudio()
                 as_video = period.getAdaptationSetVideo()
                 as_video.setStartNumber(self._getStartNumberFromFilename(seg.uri))
