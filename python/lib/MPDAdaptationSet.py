@@ -15,7 +15,7 @@ class Base:
     def setStartNumber(self, startNumber):
         self.startNumber = startNumber.lstrip('0')
     def setStartTime(self, startTime):
-        self.presentationTimeOffset = int(startTime * self.timescale)
+        self.presentationTimeOffset = int(float(startTime) * self.timescale)
     def __str__(self):
         s = "(mimeType=%s, codec=%s, representations=%d):\n" % (self.mimeType, self.codec, len(self.representations))
         for r in self.representations:

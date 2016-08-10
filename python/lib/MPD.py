@@ -42,10 +42,7 @@ class Period:
         event = SCTE35Event(id, int(duration), scte35)
         self.eventstream.append(event)
     def asXML(self):
-        if self.isLastPeriod:
-            xml = '  <Period id="%s" start="%s">\n' % (self.id, util.PT(self.periodStart))
-        else:
-            xml = '  <Period id="%s" start="%s" duration="%s">\n' % (self.id, util.PT(self.periodStart), util.PT(self.periodDuration))
+        xml = '  <Period id="%s" start="%s">\n' % (self.id, util.PT(self.periodStart))
         if len(self.eventstream) > 0:
             timescale = self.eventstream[0].getTimescale()
             xml += '    <EventStream timescale="%d" schemeIdUri="urn:scte:scte35:2014:xml+bin">\n' % timescale
@@ -180,7 +177,6 @@ class HLS(Base):
                 self._initiatePeriod(newperiod, self.profiles)
                 self.appendPeriod(newperiod)
                 isFirst = True
-                newperiod.setPeriodStart(offset)
             duration = float(seg.duration)
             videoseg = MPDRepresentation.Segment(duration, isFirst)
             audioseg = MPDRepresentation.Segment(duration, isFirst)
