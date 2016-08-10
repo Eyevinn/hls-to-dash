@@ -22,6 +22,10 @@ class Period:
         self.isLastPeriod = False
     def setPeriodStart(self, start):
         self.periodStart = start
+    def setPeriodId(self, periodid):
+        self.id = periodid
+    def getPeriodId(self):
+        return self.id
     def increaseDuration(self, duration):
         self.periodDuration += duration
     def setAsLastPeriod(self):
@@ -123,8 +127,11 @@ class HLS(Base):
             self.baseurl = res.group(1) + '/'
 	if re.match('^http', playlistlocator):
             self.isRemote = True
-        self.currentPeriod = 0
+        self.currentPeriodIdx = 0
         self.profiles = []
+
+        # Below should be set outside of this class
+        self.splitperiod = True
 
     def setProfilePattern(self, profilepattern):
         self.profilepattern = profilepatten
@@ -165,6 +172,8 @@ class HLS(Base):
         eventid = 1
         offset = 0.0
         state = 'initial'
+        isFirstSplit = True
+        lastnumber = None
         for seg in playlist.segments:
             if state == 'initial':
                 if seg.cue_out == True:
@@ -181,12 +190,16 @@ class HLS(Base):
                     state = 'outsidecue'
                     if not isFirst:
                         doSplit = True
-            debug.log("[%s][P%d]: %s" % (state, self.currentPeriod, seg.uri))
+            debug.log("[%s][P%d]: %s" % (state, self.currentPeriodIdx, seg.uri))
 
-            if doSplit:
+            if self.splitperiod and doSplit:
                 debug.log("-- Split period before %s" % seg.uri)
-                self.currentPeriod = self.currentPeriod + 1
-                newperiod = Period(str(self.currentPeriod + 1))
+                if isFirstSplit == True:
+                    period = self.getPeriod(self.currentPeriodIdx)
+                    period.setPeriodId("P%s" % lastnumber)
+                    isFirstSplit = False
+                self.currentPeriodIdx = self.currentPeriodIdx + 1
+                newperiod = Period("P%s" % self._getStartNumberFromFilename(seg.uri))
                 self._initiatePeriod(newperiod, self.profiles)
                 self.appendPeriod(newperiod)
                 isFirst = True
@@ -194,7 +207,7 @@ class HLS(Base):
             duration = float(seg.duration)
             videoseg = MPDRepresentation.Segment(duration, isFirst)
             audioseg = MPDRepresentation.Segment(duration, isFirst)
-            period = self.getPeriod(self.currentPeriod)
+            period = self.getPeriod(self.currentPeriodIdx)
             period.getAdaptationSetVideo().addSegment(videoseg)
             period.getAdaptationSetAudio().addSegment(audioseg)
             period.increaseDuration(duration)
@@ -215,6 +228,7 @@ class HLS(Base):
                 as_audio.setStartNumber(self._getStartNumberFromFilename(seg.uri))
                 as_audio.setStartTime(self.firstSegmentStartTime)
             isFirst = False
+            lastnumber = self._getStartNumberFromFilename(seg.uri)
         allperiods = self.getAllPeriods()
         allperiods[len(allperiods)-1].setAsLastPeriod()
     
@@ -254,6 +268,6 @@ class HLS(Base):
                 'stream': stream
             }
             self.profiles.append(profilemetadata)
-        self._initiatePeriod(self.getPeriod(self.currentPeriod), self.profiles)
+        self._initiatePeriod(self.getPeriod(self.currentPeriodIdx), self.profiles)
 
 
