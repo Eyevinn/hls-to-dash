@@ -4,6 +4,7 @@ import m3u8
 import time
 import datetime
 import pycurl
+import os
 from ffprobe import FFProbe
 from lib import util
 from lib import MPDAdaptationSet
@@ -129,9 +130,18 @@ class HLS(Base):
             self.isRemote = True
         self.currentPeriodIdx = 0
         self.profiles = []
+        self.ctx = '/tmp/test.ctx'
 
         # Below should be set outside of this class
         self.splitperiod = True
+
+        # Set last period id as default period id for first period
+        if self.splitperiod == True:
+            firstperiod = self.getPeriod(0)
+            if os.path.isfile(self.ctx):
+                with open(self.ctx, 'r+') as f:
+                    periodid = f.read()
+                    firstperiod.setPeriodId(periodid)          
 
     def setProfilePattern(self, profilepattern):
         self.profilepattern = profilepatten
@@ -230,7 +240,12 @@ class HLS(Base):
             isFirst = False
             lastnumber = self._getStartNumberFromFilename(seg.uri)
         allperiods = self.getAllPeriods()
-        allperiods[len(allperiods)-1].setAsLastPeriod()
+        lastperiod = allperiods[len(allperiods)-1]
+        lastperiod.setAsLastPeriod()
+        with open(self.ctx, 'w+') as f:
+            f.seek(0)
+            f.write(lastperiod.getPeriodId())
+            f.truncate()
     
     def _getStartTimeFromFile(self, uri):
         if self.isRemote:
