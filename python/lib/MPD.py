@@ -88,7 +88,7 @@ class Context:
     def __init__(self, name):
         self.filename = '/tmp/' + name + '.ctx'
         #self.filename = '/tmp/' + 'TEST' + '.ctx'
-        self.timebase = 90000
+        self.timebase = 90000.0
         self.prevSplitTS = None
         self.nextSplitTS = None
     def getPrevSplit(self):
@@ -96,15 +96,15 @@ class Context:
             return 0
         return self.prevSplitTS
     def setPrevSplit(self, t):
-        self.prevSplitTS = int(t * self.timebase)
+        self.prevSplitTS = int(float(t) * self.timebase)
     def getNextSplit(self):
         if self.nextSplitTS == None:
             return 0
         return self.nextSplitTS
     def setNextSplit(self, t):
-        self.nextSplitTS = int(t * self.timebase)
+        self.nextSplitTS = int(float(t) * self.timebase)
     def getTimeBase(self):
-        return self.timebase
+        return float(self.timebase)
     def resetNextSplit(self):
         self.nextSplitTS = None
     def restore(self):
@@ -326,17 +326,17 @@ class HLS(Base):
                         isFirstSplit = False
                 period.setPeriodId(periodid)
                 # Set period start time
-                periodstart = periodid / self.context.getTimeBase()
-                period.setPeriodStart(periodstart)
+                periodstartsec = float(periodid / self.context.getTimeBase())
+                period.setPeriodStart(periodstartsec)
                 # Set segment start time and start number for the video and audio segments
                 videoseg.setStartTime(firstStartTimeInPeriod)
                 audioseg.setStartTime(firstStartTimeInPeriod)
                 as_audio = period.getAdaptationSetAudio()
                 as_video = period.getAdaptationSetVideo()
                 as_video.setStartNumber(self._getStartNumberFromFilename(seg.uri))
-                as_video.setStartTime(periodstart)
+                as_video.setStartTime(periodstartsec)
                 as_audio.setStartNumber(self._getStartNumberFromFilename(seg.uri))
-                as_audio.setStartTime(periodstart)
+                as_audio.setStartTime(periodstartsec)
             isFirstInPeriod = False
             isFirst = False
         if self.context.getNextSplit() < self.context.getPrevSplit():
