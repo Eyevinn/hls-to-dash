@@ -105,6 +105,8 @@ class Context:
         self.nextSplitTS = int(t * self.timebase)
     def getTimeBase(self):
         return self.timebase
+    def resetNextSplit(self):
+        self.nextSplitTS = None
     def restore(self):
         debug.log('Restoring context from %s' % self.filename)
         if os.path.isfile(self.filename):
@@ -333,6 +335,9 @@ class HLS(Base):
                 as_audio.setStartTime(periodstart)
             isFirstInPeriod = False
             isFirst = False
+        if self.context.getNextSplit() < self.context.getPrevSplit():
+            # No new split in this manifest, last split is the current one
+            self.context.resetNextSplit()
         allperiods = self.getAllPeriods()
         lastperiod = allperiods[len(allperiods)-1]
         lastperiod.setAsLastPeriod()
