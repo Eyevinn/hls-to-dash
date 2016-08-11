@@ -5,6 +5,7 @@ import time
 import datetime
 import pycurl
 import os
+import json
 from ffprobe import FFProbe
 from lib import util
 from lib import MPDAdaptationSet
@@ -83,6 +84,59 @@ class SCTE35Event(PeriodEvent):
         xml += '      </Event>\n'
         return xml
 
+class Context:
+    def __init__(self, name):
+        self.filename = '/tmp/' + name + '.ctx'
+        #self.filename = '/tmp/' + 'TEST' + '.ctx'
+        self.timebase = 90000
+        self.prevSplitTS = None
+        self.nextSplitTS = None
+    def getPrevSplit(self):
+        if self.prevSplitTS == None:
+            return 0
+        return self.prevSplitTS
+    def setPrevSplit(self, t):
+        self.prevSplitTS = int(t * self.timebase)
+    def getNextSplit(self):
+        if self.nextSplitTS == None:
+            return 0
+        return self.nextSplitTS
+    def setNextSplit(self, t):
+        self.nextSplitTS = int(t * self.timebase)
+    def getTimeBase(self):
+        return self.timebase
+    def restore(self):
+        debug.log('Restoring context from %s' % self.filename)
+        if os.path.isfile(self.filename):
+            with open(self.filename, 'r+') as f:
+                data = f.read()
+                obj = json.loads(data)
+                self.timebase = obj['timebase']
+                if 'prevsplit' in obj:
+                    self.prevSplitTS = obj['prevsplit']
+                if 'nextsplit' in obj:
+                    self.nextSplitTS = obj['nextsplit']
+        debug.log('Context: %s' % self)
+    def save(self):
+        obj = {}
+        obj['timebase'] = self.timebase
+        if self.prevSplitTS != None:
+            obj['prevsplit'] = self.prevSplitTS
+        if self.nextSplitTS != None:
+            obj['nextsplit'] = self.nextSplitTS
+        with open(self.filename, 'w+') as f:
+            f.seek(0)
+            f.write(json.dumps(obj, indent=4))
+            f.truncate()
+        debug.log('Saved context to %s' % self.filename)
+    def __str__(self):
+        s = 'timebase=%d' % self.timebase
+        if self.prevSplitTS != None:
+            s += ',prevsplit=%d' % self.prevSplitTS
+        if self.nextSplitTS != None:
+            s += ',nextsplit=%d' % self.nextSplitTS
+        return s
+
 class Base:
     def __init__(self):
         self.maxSegmentDuration = 10
@@ -130,23 +184,21 @@ class HLS(Base):
             self.isRemote = True
         self.currentPeriodIdx = 0
         self.profiles = []
-        self.ctx = '/tmp/test.ctx'
 
         # Below should be set outside of this class
         self.splitperiod = True
 
-        # Set last period id as default period id for first period
-        if self.splitperiod == True:
-            firstperiod = self.getPeriod(0)
-            if os.path.isfile(self.ctx):
-                with open(self.ctx, 'r+') as f:
-                    periodid = f.read()
-                    firstperiod.setPeriodId(periodid)          
+        # By default use directory name as name for this stream
+        r = re.match('^.*/(.*?)/.*.m3u8$', playlistlocator)
+        if r:
+            self.name = r.group(1)
+        self.context = Context(self.name)
 
     def setProfilePattern(self, profilepattern):
         self.profilepattern = profilepatten
 
     def load(self):
+        self.context.restore()
         debug.log("Loading playlist: ", self.playlistlocator)
         m3u8_obj = m3u8.load(self.playlistlocator)
         if m3u8_obj.is_variant:
@@ -161,6 +213,7 @@ class HLS(Base):
         for per in self.getAllPeriods():
             debug.log("Audio: ", per.as_audio)
             debug.log("Video: ", per.as_video)
+        self.context.save()
 
     def _profileFromFilename(self, filename):
         result = re.match(self.profilepattern, filename)
@@ -177,6 +230,7 @@ class HLS(Base):
 
     def _parsePlaylist(self, playlist):
         self.maxSegmentDuration = playlist.target_duration
+        isFirstInPeriod = True
         isFirst = True
         doSplit = False
         eventid = 1
@@ -184,6 +238,7 @@ class HLS(Base):
         state = 'initial'
         isFirstSplit = True
         lastnumber = None
+        periodid = 'UNDEF'
         for seg in playlist.segments:
             if state == 'initial':
                 if seg.cue_out == True:
@@ -204,15 +259,11 @@ class HLS(Base):
 
             if self.splitperiod and doSplit:
                 debug.log("-- Split period before %s" % seg.uri)
-                if isFirstSplit == True:
-                    period = self.getPeriod(self.currentPeriodIdx)
-                    period.setPeriodId("P%s" % lastnumber)
-                    isFirstSplit = False
                 self.currentPeriodIdx = self.currentPeriodIdx + 1
                 newperiod = Period("P%s" % self._getStartNumberFromFilename(seg.uri))
                 self._initiatePeriod(newperiod, self.profiles)
                 self.appendPeriod(newperiod)
-                isFirst = True
+                isFirstInPeriod = True
                 doSplit = False
             duration = float(seg.duration)
             videoseg = MPDRepresentation.Segment(duration, isFirst)
@@ -222,30 +273,68 @@ class HLS(Base):
             period.getAdaptationSetAudio().addSegment(audioseg)
             period.increaseDuration(duration)
             offset += duration
-            if isFirst:
+            if isFirstInPeriod:
+                # Add EventStream to place SCTE35 metadata
                 if state == 'insidecue' and seg.cue_out == True:
                     debug.log("SCTE35:%s" % seg.scte35)
                     period.addSCTE35Splice(eventid, seg.scte35_duration, seg.scte35)
                     eventid = eventid + 1
-                self.firstSegmentStartTime = self._getStartTimeFromFile(self.baseurl + seg.uri)
-                videoseg.setStartTime(self.firstSegmentStartTime)
-                audioseg.setStartTime(self.firstSegmentStartTime)
-                period.setPeriodStart(self.firstSegmentStartTime)
+                # Obtain the start time for the first segment in this period
+                firstStartTimeInPeriod = self._getStartTimeFromFile(self.baseurl + seg.uri)
+                firstStartTimeInPeriodTicks = int(firstStartTimeInPeriod * self.context.getTimeBase())
+                # Determine the period ID
+                if isFirst == True:
+                    debug.log('firstStartTimeInPeriod=%d, prevsplit=%d' % (firstStartTimeInPeriodTicks, self.context.getPrevSplit()))
+                    # Store the first segment start time in this manifest
+                    # to be able to calculate the MPD availability start time
+                    self.firstSegmentStartTime = firstStartTimeInPeriod
+                    # As this is the very first period and we then need to determine
+                    # whether the first segment belongs to a period created
+                    # in previous manifest so the correct period id is set
+                    if self.context.getPrevSplit() == 0:
+                        # We have no information of previous split so use
+                        # the start time in this period as period id
+                        # and save it for later use
+                        self.context.setPrevSplit(firstStartTimeInPeriod)
+                        periodid = self.context.getPrevSplit()
+                    elif firstStartTimeInPeriodTicks > self.context.getPrevSplit():
+                        if self.context.getNextSplit() == 0:
+                            periodid = self.context.getPrevSplit()
+                        elif firstStartTimeInPeriodTicks < self.context.getNextSplit():
+                            # Start time for the first segment in this period
+                            # is still before the next split and we should use
+                            # period id belonging to previous manifest
+                            periodid = self.context.getPrevSplit()
+                        else:
+                            # Start time for the first segment in this period
+                            # belongs to a new period
+                            periodid = firstStartTimeInPeriodTicks
+                            self.context.setPrevSplit(firstStartTimeInPeriod)
+                else:
+                    # Start time for the first segment in this period after a split
+                    # is the period id
+                    periodid = firstStartTimeInPeriodTicks
+                    if isFirstSplit == True:
+                        # Save the segment start time for the first split
+                        self.context.setNextSplit(firstStartTimeInPeriod)
+                        isFirstSplit = False
+                period.setPeriodId(periodid)
+                # Set period start time
+                period.setPeriodStart(firstStartTimeInPeriod)
+                # Set segment start time and start number for the video and audio segments
+                videoseg.setStartTime(firstStartTimeInPeriod)
+                audioseg.setStartTime(firstStartTimeInPeriod)
                 as_audio = period.getAdaptationSetAudio()
                 as_video = period.getAdaptationSetVideo()
                 as_video.setStartNumber(self._getStartNumberFromFilename(seg.uri))
-                as_video.setStartTime(self.firstSegmentStartTime)
+                as_video.setStartTime(firstStartTimeInPeriod)
                 as_audio.setStartNumber(self._getStartNumberFromFilename(seg.uri))
-                as_audio.setStartTime(self.firstSegmentStartTime)
+                as_audio.setStartTime(firstStartTimeInPeriod)
+            isFirstInPeriod = False
             isFirst = False
-            lastnumber = self._getStartNumberFromFilename(seg.uri)
         allperiods = self.getAllPeriods()
         lastperiod = allperiods[len(allperiods)-1]
         lastperiod.setAsLastPeriod()
-        with open(self.ctx, 'w+') as f:
-            f.seek(0)
-            f.write(lastperiod.getPeriodId())
-            f.truncate()
     
     def _getStartTimeFromFile(self, uri):
         if self.isRemote:
