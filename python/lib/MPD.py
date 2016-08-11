@@ -13,6 +13,7 @@ from lib import MPDRepresentation
 from lib import TS
 import debug
 
+# Represents an MPEG DASH period
 class Period:
     def __init__(self, periodid):
         self.id = periodid
@@ -60,6 +61,7 @@ class Period:
         xml += '  </Period>\n'
         return xml
 
+# An MPEG DASH Event (base class)
 class PeriodEvent:
     def __init__(self, id, duration):
         self.duration = duration
@@ -70,6 +72,7 @@ class PeriodEvent:
     def getId(self):
         return self.id
 
+# SCTE35 as an MPEG DASH Event
 class SCTE35Event(PeriodEvent):
     def __init__(self, id, duration, scte35):
         PeriodEvent.__init__(self, id, duration)
@@ -84,9 +87,12 @@ class SCTE35Event(PeriodEvent):
         xml += '      </Event>\n'
         return xml
 
+# Store context state between executions
 class Context:
-    def __init__(self, name):
-        self.filename = '/tmp/' + name + '.ctx'
+    def __init__(self, name, dir='/tmp/'):
+        if not dir.endswith('/'):
+            dir += '/'
+        self.filename = dir + name + '.ctx'
         #self.filename = '/tmp/' + 'TEST' + '.ctx'
         self.timebase = 90000.0
         self.prevSplitTS = None
@@ -139,6 +145,7 @@ class Context:
             s += ',nextsplit=%d' % self.nextSplitTS
         return s
 
+# MPEG DASH manifest (base class)
 class Base:
     def __init__(self):
         self.maxSegmentDuration = 10
@@ -170,9 +177,9 @@ class Base:
     def _getPublishTime(self):
         return datetime.datetime.utcnow().isoformat() + "Z"
  
-
+# MPEG DASH manifest from a HLS manifest
 class HLS(Base):
-    def __init__(self, playlistlocator):
+    def __init__(self, playlistlocator, splice=False, ctxdir='/tmp/', ctxname=None):
         Base.__init__(self)
         self.playlistlocator = playlistlocator
         self.profilepattern = 'master(\d+).m3u8'
@@ -187,14 +194,19 @@ class HLS(Base):
         self.currentPeriodIdx = 0
         self.profiles = []
 
-        # Below should be set outside of this class
-        self.splitperiod = True
+        # If enabled splice into multi periods on SCTE35 markers
+        self.splitperiod = splice
 
         # By default use directory name as name for this stream
-        r = re.match('^.*/(.*?)/.*.m3u8$', playlistlocator)
-        if r:
-            self.name = r.group(1)
-        self.context = Context(self.name)
+        if ctxname == None:
+            r = re.match('^.*/(.*?)/.*.m3u8$', playlistlocator)
+            if r:
+                self.name = r.group(1)
+            if self.splitperiod == True:
+                self.name += '_multi'
+        else:
+            self.name = ctxname
+        self.context = Context(self.name, ctxdir)
 
     def setProfilePattern(self, profilepattern):
         self.profilepattern = profilepatten
@@ -231,6 +243,7 @@ class HLS(Base):
         return 0
 
     def _parsePlaylist(self, playlist):
+        debug.log("Splicing enabled=%s" % self.splitperiod)
         self.maxSegmentDuration = playlist.target_duration
         isFirstInPeriod = True
         isFirst = True
