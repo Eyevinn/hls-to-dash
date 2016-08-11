@@ -297,7 +297,7 @@ class HLS(Base):
                         # and save it for later use
                         self.context.setPrevSplit(firstStartTimeInPeriod)
                         periodid = self.context.getPrevSplit()
-                    elif firstStartTimeInPeriodTicks > self.context.getPrevSplit():
+                    elif firstStartTimeInPeriodTicks >= self.context.getPrevSplit():
                         if self.context.getNextSplit() == 0:
                             periodid = self.context.getPrevSplit()
                         elif firstStartTimeInPeriodTicks < self.context.getNextSplit():
