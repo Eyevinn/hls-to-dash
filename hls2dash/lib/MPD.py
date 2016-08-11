@@ -12,11 +12,11 @@ import pycurl
 import os
 import json
 from ffprobe import FFProbe
-from lib import util
-from lib import MPDAdaptationSet
-from lib import MPDRepresentation
-from lib import TS
-import debug
+from hls2dash.lib import util
+from hls2dash.lib import MPDAdaptationSet
+from hls2dash.lib import MPDRepresentation
+from hls2dash.lib import TS
+from hls2dash import debug
 
 # Represents an MPEG DASH period
 class Period:

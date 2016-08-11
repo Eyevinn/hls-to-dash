@@ -4,8 +4,8 @@
 # Author: Jonas Birme (Eyevinn Technology)
 
 import argparse
-from lib import MPD
-import debug
+from hls2dash.lib import MPD
+from hls2dash import debug
 
 def main():
     parser = argparse.ArgumentParser(

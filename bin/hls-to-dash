@@ -1,3 +1,2 @@
 #!/bin/bash
-BASEDIR=$(dirname $0)
-exec python "$BASEDIR/../python/hls-to-dash.py" "$@"
+exec python hls2dash "$@"
