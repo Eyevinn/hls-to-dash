@@ -130,7 +130,7 @@ class Context:
             f.seek(0)
             f.write(json.dumps(obj, indent=4))
             f.truncate()
-        debug.log('Saved context to %s' % self.filename)
+        debug.log('Saved context %s to %s' % (obj, self.filename))
     def __str__(self):
         s = 'timebase=%d' % self.timebase
         if self.prevSplitTS != None:
@@ -309,9 +309,13 @@ class HLS(Base):
                             periodid = self.context.getPrevSplit()
                         else:
                             # Start time for the first segment in this period
-                            # belongs to a new period
-                            periodid = firstStartTimeInPeriodTicks
-                            self.context.setPrevSplit(firstStartTimeInPeriod)
+                            # belongs to a new period unless this is the only period
+                            # in this manifest and is actually the last split
+                            if self.context.getNextSplit() < self.context.getPrevSplit():
+                                period = self.context.getPrevSplit()
+                            else:
+                                periodid = firstStartTimeInPeriodTicks
+                                self.context.setPrevSplit(firstStartTimeInPeriod)
                 else:
                     # Start time for the first segment in this period after a split
                     # is the period id
