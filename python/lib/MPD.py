@@ -257,7 +257,7 @@ class HLS(Base):
                     state = 'outsidecue'
                     if not isFirst:
                         doSplit = True
-            debug.log("[%s][P%d]: %s" % (state, self.currentPeriodIdx, seg.uri))
+            #debug.log("[%s][P%d]: %s" % (state, self.currentPeriodIdx, seg.uri))
 
             if self.splitperiod and doSplit:
                 debug.log("-- Split period before %s" % seg.uri)
@@ -268,8 +268,8 @@ class HLS(Base):
                 isFirstInPeriod = True
                 doSplit = False
             duration = float(seg.duration)
-            videoseg = MPDRepresentation.Segment(duration, isFirst)
-            audioseg = MPDRepresentation.Segment(duration, isFirst)
+            videoseg = MPDRepresentation.Segment(duration, isFirstInPeriod)
+            audioseg = MPDRepresentation.Segment(duration, isFirstInPeriod)
             period = self.getPeriod(self.currentPeriodIdx)
             period.getAdaptationSetVideo().addSegment(videoseg)
             period.getAdaptationSetAudio().addSegment(audioseg)
@@ -283,7 +283,7 @@ class HLS(Base):
                     eventid = eventid + 1
                 # Obtain the start time for the first segment in this period
                 firstStartTimeInPeriod = self._getStartTimeFromFile(self.baseurl + seg.uri)
-                firstStartTimeInPeriodTicks = int(firstStartTimeInPeriod * self.context.getTimeBase())
+                firstStartTimeInPeriodTicks = int(float(firstStartTimeInPeriod) * self.context.getTimeBase())
                 # Determine the period ID
                 if isFirst == True:
                     debug.log('firstStartTimeInPeriod=%d, prevsplit=%d' % (firstStartTimeInPeriodTicks, self.context.getPrevSplit()))
