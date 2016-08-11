@@ -320,16 +320,17 @@ class HLS(Base):
                         isFirstSplit = False
                 period.setPeriodId(periodid)
                 # Set period start time
-                period.setPeriodStart(firstStartTimeInPeriod)
+                periodstart = periodid / self.context.getTimeBase()
+                period.setPeriodStart(periodstart)
                 # Set segment start time and start number for the video and audio segments
                 videoseg.setStartTime(firstStartTimeInPeriod)
                 audioseg.setStartTime(firstStartTimeInPeriod)
                 as_audio = period.getAdaptationSetAudio()
                 as_video = period.getAdaptationSetVideo()
                 as_video.setStartNumber(self._getStartNumberFromFilename(seg.uri))
-                as_video.setStartTime(firstStartTimeInPeriod)
+                as_video.setStartTime(periodstart)
                 as_audio.setStartNumber(self._getStartNumberFromFilename(seg.uri))
-                as_audio.setStartTime(firstStartTimeInPeriod)
+                as_audio.setStartTime(periodstart)
             isFirstInPeriod = False
             isFirst = False
         allperiods = self.getAllPeriods()
