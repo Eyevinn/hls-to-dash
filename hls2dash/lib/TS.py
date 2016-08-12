@@ -9,7 +9,7 @@ from ffprobe import FFProbe
 import tempfile
 import re
 import os
-from hls2dash.lib import TSRemux
+from hls2dash.lib.TSRemux import tsremux
 from hls2dash import debug
 
 class Base:
@@ -20,9 +20,6 @@ class Base:
     def parsedata(self, probedata):
         if len(probedata.streams) > 0:
             self.startTime = float(probedata.streams[0].start_time)
-    def isRemuxed(self, outdir, profile, number):
-        dashaudiopath = '%s/audio-%s_%s.dash' % (outdir, profile, number)
-        return os.path.isfile(dashaudiopath)
     def getStartTime(self):
         return self.startTime
     def cleanup(self):
@@ -47,7 +44,7 @@ class Remote(Base):
         self.fpath = self.tmpdir + self.fname
     def download(self):
         if self.downloadedFile == None:
-            debug.log("Downloading %s" % self.fname)
+            debug.log("Downloading %s to %s" % (self.uri, self.fname))
             self.downloadedFile = open(self.fpath, 'wb')
             c = pycurl.Curl()
             c.setopt(c.URL, self.uri)
@@ -58,9 +55,11 @@ class Remote(Base):
     def probe(self):
         self.download()
         self.parsedata(FFProbe(self.downloadedFile.name))
-    def remuxMP4(self, outdir, profile, number):
+    def remuxMP4(self, outdir, filename):
         self.download()
-        TSRemux(self.downloadedFile.name, outdir, profile, self.getStartTime())
+        self.probe()
+        tsremux(self.downloadedFile.name, outdir, filename, self.getStartTime())
+        self.cleanup()
     def getFilename(self):
         return self.downloadedFile.name
     def cleanup(self):
@@ -72,6 +71,9 @@ class Local(Base):
         self.path = path
     def probe(self):
         self.parsedata(FFProbe(self.path))
+    def remuxMP4(self, outdir, filename):
+        self.probe()
+        tsremux(self.path, outdir, filename, self.getStartTime())
     def getFilename(self):
         return self.path
 

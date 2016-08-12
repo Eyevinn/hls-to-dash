@@ -5,10 +5,15 @@ This is an open source video streaming packager and toolkit to rewrap live HLS s
 ## Features
  - Generate single period MPEG DASH for live based on an HLS live stream
  - Generate multi period MPEG DASH for live based on an HLS live stream with SCTE35 splicing
+ - Rewrap MPEG2 TS segment to fragmented MP4
 
 # Usage
 
 ## Install
+
+Installation from Python package index:
+
+     pip install hls2dash
 
 Installation from source:
 
@@ -24,7 +29,13 @@ Generate Multi period MPEG DASH:
 
      hls-to-dash http://example.com/master.m3u8 --multi > stream.mpd
 
-## Help
+Rewrap MPEG2 TS segment to fragmented MP4
+
+     ts-to-fmp4 --debug master2500_19274.ts 2500_19274.dash
+
+# Help
+
+## hls-to-dash
 
 ```
 usage: hls-to-dash [-h] [--multi] [--ctx CTX] [--ctxdir CTXDIR] [--debug]
@@ -49,3 +60,19 @@ optional arguments:
   --debug          Write debug info to stderr
 ```
 
+## ts-to-fmp4
+
+```
+usage: ts-to-fmp4 [-h] [--outdir OUTDIR] [--debug] TSFILE OUTPUT
+
+Rewrap a MPEG2 TS segment to a fragmented MP4
+
+positional arguments:
+  TSFILE           Path to TS file. Can be a URI or local file.
+  OUTPUT           Output file name
+
+optional arguments:
+  -h, --help       show this help message and exit
+  --outdir OUTDIR  Directory where the fragmented MP4 will be stored. Default is current directory
+  --debug          Write debug info to stderr
+```

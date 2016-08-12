@@ -4,13 +4,17 @@
 # Author: Jonas Birme (Eyevinn Technology)
 
 import argparse
+import re
 from hls2dash import debug
+from hls2dash.lib import TS
 
 def main():
     parser = argparse.ArgumentParser(
         description="Rewrap a MPEG2 TS segment to a fragmented MP4"
         ,formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('tsfile', metavar='TSFILE', help='Path to TS file. Can be a URI or local file.')
+    parser.add_argument('output', metavar='OUTPUT', help='Output file name')
+    parser.add_argument('--outdir', dest='outdir', default='.', help='Directory where the fragmented MP4 will be stored. Default is current directory')
     parser.add_argument('--debug', dest='debug', action='store_true', default=False, help='Write debug info to stderr')
     args = parser.parse_args()
     debug.doDebug = args.debug
@@ -20,4 +24,4 @@ def main():
         ts = TS.Remote(args.tsfile)
     else:
         ts = TS.Local(args.tsfile)
-
+    ts.remuxMP4(args.outdir, args.output)
