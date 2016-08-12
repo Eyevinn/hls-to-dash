@@ -31,7 +31,11 @@ Generate Multi period MPEG DASH:
 
 Rewrap MPEG2 TS segment to fragmented MP4
 
-     ts-to-fmp4 --debug master2500_19274.ts 2500_19274.dash
+     ts-to-fmp4 master2500_19274.ts 2500_19274.dash
+
+or when TS segment is on a remote server
+     
+     ts-to-fmp4 http://example.com/master2500_19274.ts 2500_19274.dash
 
 # Help
 
