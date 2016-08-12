@@ -28,7 +28,7 @@ def runcmd(cmd, name):
             return subprocess.call(cmd)
         else:
             return subprocess.call(cmd, stdout=FNULL, stderr=subprocess.STDOUT)
-    except CalledProcessError as e:
+    except subprocess.CalledProcessError as e:
         message = "binary tool failed with error %d" % e.returncode
         raise Exception(message)
     except OSError as e:
