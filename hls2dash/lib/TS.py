@@ -7,6 +7,10 @@
 import pycurl
 from ffprobe import FFProbe
 import tempfile
+import re
+import os
+from hls2dash.lib import TSRemux
+from hls2dash import debug
 
 class Base:
     def __init__(self):
@@ -16,23 +20,51 @@ class Base:
     def parsedata(self, probedata):
         if len(probedata.streams) > 0:
             self.startTime = float(probedata.streams[0].start_time)
+    def isRemuxed(self, outdir, profile, number):
+        dashaudiopath = '%s/audio-%s_%s.dash' % (outdir, profile, number)
+        return os.path.isfile(dashaudiopath)
     def getStartTime(self):
         return self.startTime
+    def cleanup(self):
+        return
 
 
 class Remote(Base):
     def __init__(self, uri):
         Base.__init__(self)
         self.uri = uri
+        self.downloadedFile = None
+        self.tmpdir = '/tmp/'
+        self._initTempFile()
+    def setTmpDir(self, tmpdir):
+        self.tmpdir = tmpdir
+        if not self.tmpdir.endswith('/'):
+            self.tmpdir += '/'
+        self._initTempFile()
+    def _initTempFile(self):
+        res = re.match('.*/(.*\.ts)$', self.uri)
+        self.fname = res.group(1)
+        self.fpath = self.tmpdir + self.fname
+    def download(self):
+        if self.downloadedFile == None:
+            debug.log("Downloading %s" % self.fname)
+            self.downloadedFile = open(self.fpath, 'wb')
+            c = pycurl.Curl()
+            c.setopt(c.URL, self.uri)
+            c.setopt(c.WRITEDATA, self.downloadedFile)
+            c.perform()
+            c.close
+            self.downloadedFile.close()
     def probe(self):
-        tmpfile = tempfile.NamedTemporaryFile()
-        c = pycurl.Curl()
-        c.setopt(c.URL, self.uri)
-        c.setopt(c.WRITEDATA, tmpfile)
-        c.perform()
-        c.close
-        self.parsedata(FFProbe(tmpfile.name))
-        tmpfile.close()
+        self.download()
+        self.parsedata(FFProbe(self.downloadedFile.name))
+    def remuxMP4(self, outdir, profile, number):
+        self.download()
+        TSRemux(self.downloadedFile.name, outdir, profile, self.getStartTime())
+    def getFilename(self):
+        return self.downloadedFile.name
+    def cleanup(self):
+        os.remove(self.fpath)
 
 class Local(Base):
     def __init__(self, path):
@@ -40,6 +72,8 @@ class Local(Base):
         self.path = path
     def probe(self):
         self.parsedata(FFProbe(self.path))
+    def getFilename(self):
+        return self.path
 
 class Stream:
     def __init__(self, streamid):

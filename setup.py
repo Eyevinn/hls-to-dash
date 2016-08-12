@@ -27,7 +27,8 @@ setup(
     packages = ['hls2dash', 'hls2dash/lib'],
     entry_points = {
         'console_scripts': [
-            'hls-to-dash=hls2dash:main'
+            'hls-to-dash=hls2dash:main',
+            'ts-to-fmp4=hls2dash.tsremux:main'
         ]
     }
 )

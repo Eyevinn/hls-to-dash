@@ -378,6 +378,7 @@ class HLS(Base):
         else:
             ts = TS.Local(uri)
         ts.probe()
+        ts.cleanup()
         return ts.getStartTime()
 
     def _initiatePeriod(self, period, profiles):
