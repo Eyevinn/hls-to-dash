@@ -334,6 +334,12 @@ class HLS(Base):
                             else:
                                 periodid = firstStartTimeInPeriodTicks
                                 self.context.setPrevSplit(firstStartTimeInPeriod)
+                    elif firstStartTimeInPeriodTicks < self.context.getPrevSplit():
+                        # If start time of first segment is smaller than ts of
+                        # last split a segment time stamp reset / overflow must have
+                        # occured
+                        periodid = firstStartTimeInPeriodTicks
+                        self.context.setPrevSplit(firstStartTimeInPeriod)
                 else:
                     # Start time for the first segment in this period after a split
                     # is the period id
