@@ -24,7 +24,7 @@ setup(
     license = "MIT",
     install_requires=install_reqs,
     url = "https://github.com/Eyevinn/hls-to-dash",
-    packages = ['hls2dash', 'hls2dash/lib'],
+    packages = ['hls2dash', 'hls2dash/lib', 'hls2dash/tsremux'],
     entry_points = {
         'console_scripts': [
             'hls-to-dash=hls2dash:main',
