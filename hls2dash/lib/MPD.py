@@ -159,6 +159,9 @@ class Base:
         period = Period('1')
         period.setPeriodStart(0.0)
         self.appendPeriod(period)
+        self.version = 'UNDEF'
+    def setVersion(self, version):
+        self.version = version
     def havePeriods(self):
         return len(self.periods) > 0
     def getPeriod(self, idx):
@@ -168,7 +171,9 @@ class Base:
     def appendPeriod(self, period):
         self.periods.append(period)
     def asXML(self):
-        xml = '<?xml version="1.0"?>';
+        xml = '<?xml version="1.0"?>\n';
+        xml += '<!-- Created with hls2dash (version=%s) -->\n' % self.version;
+        xml += '<!-- https://pypi.python.org/pypi/hls2dash -->\n'
         xml += '<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="dynamic" minimumUpdatePeriod="PT10S" minBufferTime="PT1.500S" maxSegmentDuration="%s" availabilityStartTime="%s" publishTime="%s">\n' % (util.PT(self.maxSegmentDuration), self._getAvailabilityStartTime(), self._getPublishTime())
         if self.havePeriods():
             for p in self.getAllPeriods():

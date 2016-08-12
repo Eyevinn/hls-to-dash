@@ -8,8 +8,12 @@ import pkg_resources
 from hls2dash.lib import MPD
 from hls2dash import debug
 
-def main():
+def VERSION():
     version = pkg_resources.require('hls2dash')[0].version
+    return version
+
+def main():
+    version = VERSION()
     parser = argparse.ArgumentParser(
         description="Generate single and multi period MPEG DASH manifest from a live HLS source.\n" 
                     "Writes MPEG DASH manifest to stdout.\n\n"
@@ -28,6 +32,7 @@ def main():
     debug.doDebug = args.debug
 
     mpd = MPD.HLS(args.playlist, args.multi, args.ctxdir, args.ctx)
+    mpd.setVersion(VERSION())
     mpd.load()
     print(mpd.asXML())
 
