@@ -4,10 +4,12 @@
 # Author: Jonas Birme (Eyevinn Technology)
 
 import argparse
+import pkg_resources
 from hls2dash.lib import MPD
 from hls2dash import debug
 
 def main():
+    version = pkg_resources.require('hls2dash')[0].version
     parser = argparse.ArgumentParser(
         description="Generate single and multi period MPEG DASH manifest from a live HLS source.\n" 
                     "Writes MPEG DASH manifest to stdout.\n\n"
@@ -21,6 +23,7 @@ def main():
     parser.add_argument('--ctx', dest='ctx', default=None, help='Name of DASH session file')
     parser.add_argument('--ctxdir', dest='ctxdir', default='/tmp/', help='Where to store DASH session file. Defaults to /tmp/')
     parser.add_argument('--debug', dest='debug', action='store_true', default=False, help='Write debug info to stderr')
+    parser.add_argument('--version', action='version', version='%(prog)s ('+version+')')
     args = parser.parse_args()
     debug.doDebug = args.debug
 
