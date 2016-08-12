@@ -8,12 +8,11 @@ This is an open source video streaming packager and toolkit to rewrap live HLS s
 
 # Usage
 
-## Setup
-Install Python dependencies
+## Install
 
-     pip install m3u8    (requires v0.2.10)
-     pip install pycurl
-     pip install ffprobe
+Installation from source:
+
+     python setup.py install
 
 ## Single period MPEG DASH
      hls-to-dash http://example.com/master.m3u8 > stream.mpd
