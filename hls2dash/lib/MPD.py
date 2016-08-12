@@ -317,6 +317,12 @@ class HLS(Base):
                         # and save it for later use
                         self.context.setPrevSplit(firstStartTimeInPeriod)
                         periodid = self.context.getPrevSplit()
+                    elif firstStartTimeInPeriodTicks < 0:
+                        # Start time for a segment can actually be negative. No
+                        # good way to handle it but as long as it is increasing
+                        # it will eventually be back to normal
+                        periodid = firstStartTimeInPeriodTicks
+                        self.context.setPrevSplit(firstStartTimeInPeriod)
                     elif firstStartTimeInPeriodTicks >= self.context.getPrevSplit():
                         if self.context.getNextSplit() == 0:
                             periodid = self.context.getPrevSplit()
