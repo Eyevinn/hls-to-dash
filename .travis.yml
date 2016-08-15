@@ -1,3 +1,4 @@
 language: python
-script: run-tests.sh
+sudo: true
+script: ./run-tests.sh
 after_success: coveralls
