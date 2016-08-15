@@ -1,3 +1,5 @@
+![Build status](https://travis-ci.org/Eyevinn/hls-to-dash.svg?branch=master)
+
 # Description
 
 This is an open source video streaming packager and toolkit to rewrap live HLS streams to live MPEG DASH streams. 
