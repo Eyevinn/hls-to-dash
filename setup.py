@@ -16,7 +16,7 @@ install_reqs = [req for req in open(abspath(join(dirname(__file__), 'requirement
 
 setup(
     name = "hls2dash",
-    version = "0.2.1",
+    version = "0.2.2",
     author = "Jonas Birme",
     author_email = "jonas.birme@eyevinn.se",
     description = "Command line tools for HLS to MPEG DASH repackaging",
