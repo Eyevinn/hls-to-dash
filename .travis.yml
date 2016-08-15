@@ -1,0 +1,3 @@
+language: python
+script: run-tests.sh
+after_success: coveralls
