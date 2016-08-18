@@ -14,6 +14,8 @@ class Base:
         self.presentationTimeOffset = 0
     def addRepresentation(self, representation):
         self.representations.append(representation)
+    def getRepresentations(self):
+        return self.representations
     def addSegment(self, segment):
         segment.setTimescale(self.timescale)
         self.segments.append(segment)
@@ -21,6 +23,10 @@ class Base:
         self.startNumber = startNumber.lstrip('0')
     def setStartTime(self, startTime):
         self.presentationTimeOffset = int(float(startTime) * self.timescale)
+    def getPresentationTimeOffset(self):
+        return self.presentationTimeOffset
+    def getTimescale(self):
+        return self.timescale
     def __str__(self):
         s = "(mimeType=%s, codec=%s, representations=%d):\n" % (self.mimeType, self.codec, len(self.representations))
         for r in self.representations:
