@@ -216,6 +216,8 @@ class HLS(Base):
                 self.name += '_multi'
         else:
             self.name = ctxname
+        if self.name == None:
+            raise Exception("Invalid playlistlocator, not an m3u8 file")
         self.context = Context(self.name, ctxdir)
 
     def setProfilePattern(self, profilepattern):
