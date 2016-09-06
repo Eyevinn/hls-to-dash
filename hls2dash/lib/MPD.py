@@ -17,6 +17,7 @@ from hls2dash.lib import MPDAdaptationSet
 from hls2dash.lib import MPDRepresentation
 from hls2dash.lib import TS
 from hls2dash import debug
+import sys
 
 # Represents an MPEG DASH period
 class Period:
@@ -304,8 +305,9 @@ class HLS(Base):
                 # Add EventStream to place SCTE35 metadata
                 if state == 'insidecue' and seg.cue_out == True:
                     debug.log("SCTE35:%s" % seg.scte35)
-                    period.addSCTE35Splice(eventid, seg.scte35_duration, seg.scte35)
-                    eventid = eventid + 1
+                    if seg.scte35_duration:
+                        period.addSCTE35Splice(eventid, seg.scte35_duration, seg.scte35)
+                        eventid = eventid + 1
                 # Obtain the start time for the first segment in this period
                 firstStartTimeInPeriod = self._getStartTimeFromFile(self.baseurl + seg.uri)
                 firstStartTimeInPeriodTicks = int(float(firstStartTimeInPeriod) * self.context.getTimeBase())
