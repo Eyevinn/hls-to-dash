@@ -302,7 +302,7 @@ class HLS(Base):
             offset += duration
             if isFirstInPeriod:
                 # Add EventStream to place SCTE35 metadata
-                if state == 'insidecue' and seg.cue_out == True:
+                if state == 'insidecue' and seg.scte35:
                     debug.log("SCTE35:%s" % seg.scte35)
                     period.addSCTE35Splice(eventid, seg.scte35_duration, seg.scte35)
                     eventid = eventid + 1
