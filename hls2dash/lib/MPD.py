@@ -52,7 +52,7 @@ class Period:
     def getAdaptationSetAudio(self):
         return self.as_audio
     def addSCTE35Splice(self, id, duration, scte35):
-        event = SCTE35Event(id, int(duration), scte35)
+        event = SCTE35Event(id, util.NUM(duration), scte35)
         self.eventstream.append(event)
     def asXML(self):
         xml = '  <Period id="%s" start="%s">\n' % (self.id, util.PT(self.periodStart))
@@ -303,11 +303,10 @@ class HLS(Base):
             offset += duration
             if isFirstInPeriod:
                 # Add EventStream to place SCTE35 metadata
+                debug.log("SCTE35:%s (%s, %s)" % (seg.scte35, seg.cue_out, state))
                 if state == 'insidecue' and seg.cue_out == True:
-                    debug.log("SCTE35:%s" % seg.scte35)
-                    if seg.scte35_duration:
-                        period.addSCTE35Splice(eventid, seg.scte35_duration, seg.scte35)
-                        eventid = eventid + 1
+                    period.addSCTE35Splice(eventid, seg.scte35_duration, seg.scte35)
+                    eventid = eventid + 1
                 # Obtain the start time for the first segment in this period
                 firstStartTimeInPeriod = self._getStartTimeFromFile(self.baseurl + seg.uri)
                 firstStartTimeInPeriodTicks = int(float(firstStartTimeInPeriod) * self.context.getTimeBase())

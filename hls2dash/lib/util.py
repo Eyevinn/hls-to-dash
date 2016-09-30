@@ -10,3 +10,8 @@ class PT:
     def __str__(self):
         return "PT%fS" % self.seconds
 
+def NUM(s):
+    try:
+        return int(s)
+    except ValueError:
+        return float(s)
