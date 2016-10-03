@@ -16,9 +16,9 @@ class Segment:
         self.startTime = startTime
     def asXML(self):
         if self.isFirst:
-            xml = '          <S t="%d" d="%d" />\n' % (int(self.startTime * self.timescale), self.duration * self.timescale)
+            xml = '          <S t="%d" d="%d" />\n' % (int(self.startTime * self.timescale), int(round(self.duration * self.timescale)))
         else:
-            xml = '          <S d="%d" />\n' % (int(self.duration * self.timescale))
+            xml = '          <S d="%d" />\n' % (int(round(self.duration * self.timescale)))
         return xml
     def __str__(self):
         return '(duration=%s)' % (self.duration)
