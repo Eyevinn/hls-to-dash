@@ -193,8 +193,8 @@ class HLS(Base):
     def __init__(self, playlistlocator, splice=False, ctxdir='/tmp/', ctxname=None):
         Base.__init__(self)
         self.playlistlocator = playlistlocator
-        self.profilepattern = 'master(\d+).m3u8'
-        self.numberpattern = 'master\d+_(\d+).ts'
+        self.profilepattern = '^\D+(\d+.*)\.m3u8$'
+        self.numberpattern = '^.+\D+(\d+)\.ts$'
         self.isRemote = False
         self.baseurl = ''
         res = re.match('^(.*)/.*.m3u8$', playlistlocator)
@@ -245,15 +245,22 @@ class HLS(Base):
     def _profileFromFilename(self, filename):
         result = re.match(self.profilepattern, filename)
         if result:
+            debug.log("Profile=%s (filename=%s, pattern=%s)" %
+                      (result.group(1), filename, self.profilepattern))
             return result.group(1)
         else:
-            return len(self.representations)
+            exit("Error: Can't extract profile from filename=%s (pattern=%s)" %
+                 (filename, self.profilepattern))
 
     def _getStartNumberFromFilename(self, filename):
         result = re.match(self.numberpattern, filename)
         if result:
+            debug.log("StartNumber=%s (filename=%s, pattern=%s)" %
+                      (result.group(1), filename, self.numberpattern))
             return result.group(1)
-        return 0
+        debug.log("Warning: Can't extract start number from filename %s, using 0 (pattern=%s)" %
+                  (filename, self.numberpattern))
+        return '0'
 
     def _parsePlaylist(self, playlist):
         debug.log("Splicing enabled=%s" % self.splitperiod)
@@ -308,7 +315,7 @@ class HLS(Base):
                     period.addSCTE35Splice(eventid, seg.scte35_duration, seg.scte35)
                     eventid = eventid + 1
                 # Obtain the start time for the first segment in this period
-                firstStartTimeInPeriod = self._getStartTimeFromFile(self.baseurl + seg.uri)
+                firstStartTimeInPeriod = self._getStartTimeFromFile(seg.base_uri + seg.uri)
                 firstStartTimeInPeriodTicks = int(float(firstStartTimeInPeriod) * self.context.getTimeBase())
                 # Determine the period ID
                 if isFirst == True:
@@ -412,7 +419,12 @@ class HLS(Base):
         debug.log("Parsing master playlist")
         for playlist in variant.playlists:
             stream = playlist.stream_info
-            (video_codec, audio_codec) = stream.codecs.split(',')
+            if stream.codecs:
+                (video_codec, audio_codec) = stream.codecs.split(',')
+            else:
+                debug.log("Warning: No codecs defined")
+                audio_codec = ''
+                video_codec = ''
             profile = self._profileFromFilename(playlist.uri) 
             profilemetadata = {
                 'profile': profile,
